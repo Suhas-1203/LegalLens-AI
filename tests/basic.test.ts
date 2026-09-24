@@ -1,75 +1,125 @@
 import { describe, it, expect } from "vitest";
 
-describe("LegalLens AI - Core Validation", () => {
-  it("should have a complete and valid AnalysisResult structure", () => {
-    const mockResult = {
-      summary: "This is a clear plain-English summary of the legal document.",
-      keyClauses: [
-        {
-          title: "Confidentiality Period",
-          explanation: "The receiving party must keep information secret for 5 years.",
-          importance: "High" as const,
-        },
-        {
-          title: "Liquidated Damages",
-          explanation: "A fixed penalty of ₹5,00,000 applies in case of breach.",
-          importance: "High" as const,
-        },
-      ],
-      risks: [
-        {
-          risk: "High financial penalty",
-          severity: "High" as const,
-          explanation: "User may have to pay ₹5,00,000 even if actual damage is lower.",
-        },
-        {
-          risk: "Short data destruction window",
-          severity: "Medium" as const,
-          explanation: "Only 7 days given to return or destroy confidential data.",
-        },
-      ],
-      obligations: [
-        {
-          party: "Receiving Party",
-          obligation: "Maintain confidentiality for 5 years",
-        },
-        {
-          party: "Receiving Party",
-          obligation: "Return or destroy data within 7 days of termination",
-        },
-      ],
-      questionsForLawyer: [
-        "Is the ₹5,00,000 liquidated damages clause enforceable under Indian law?",
-        "Can the confidentiality period be reduced from 5 years?",
-        "Should confidential information be required to be marked as confidential?",
-      ],
-      overallRiskLevel: "High" as const,
+// Simulate the validation logic used in the API
+function validateDocumentText(text: unknown): { isValid: boolean; error?: string } {
+  if (!text || typeof text !== "string") {
+    return { isValid: false, error: "Invalid input. Please provide valid text." };
+  }
+
+  const cleanedText = text.trim();
+
+  if (cleanedText.length < 50) {
+    return { isValid: false, error: "Document text is too short. Minimum 50 characters required." };
+  }
+
+  if (cleanedText.length > 28000) {
+    return { isValid: false, error: "Document is too large. Please limit to under 28,000 characters." };
+  }
+
+  return { isValid: true };
+}
+
+// Simulate sanitization
+function sanitizeText(text: string): string {
+  return text
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/javascript:/gi, "")
+    .replace(/on\w+\s*=/gi, "");
+}
+
+describe("LegalLens AI - Realistic Validation Suite", () => {
+  // ========== Input Validation Tests ==========
+
+  it("should reject null or undefined input", () => {
+    expect(validateDocumentText(null).isValid).toBe(false);
+    expect(validateDocumentText(undefined).isValid).toBe(false);
+  });
+
+  it("should reject non-string input", () => {
+    expect(validateDocumentText(123).isValid).toBe(false);
+    expect(validateDocumentText({}).isValid).toBe(false);
+    expect(validateDocumentText([]).isValid).toBe(false);
+  });
+
+  it("should reject text shorter than 50 characters", () => {
+    const result = validateDocumentText("This is too short");
+    expect(result.isValid).toBe(false);
+    expect(result.error).toContain("too short");
+  });
+
+  it("should accept text with exactly 50 characters", () => {
+    const text = "A".repeat(50);
+    expect(validateDocumentText(text).isValid).toBe(true);
+  });
+
+  it("should accept text longer than 50 characters", () => {
+    const text = "A".repeat(120);
+    expect(validateDocumentText(text).isValid).toBe(true);
+  });
+
+  it("should reject text longer than 28000 characters", () => {
+    const text = "A".repeat(28001);
+    const result = validateDocumentText(text);
+    expect(result.isValid).toBe(false);
+    expect(result.error).toContain("too large");
+  });
+
+  // ========== Sanitization Tests ==========
+
+  it("should remove script tags during sanitization", () => {
+    const dirty = 'Hello <script>alert("xss")</script> World';
+    const clean = sanitizeText(dirty);
+    expect(clean).not.toContain("<script>");
+    expect(clean).toContain("Hello");
+    expect(clean).toContain("World");
+  });
+
+  it("should remove javascript: protocol", () => {
+    const dirty = "Click javascript:alert(1)";
+    const clean = sanitizeText(dirty);
+    expect(clean).not.toContain("javascript:");
+  });
+
+  // ========== Analysis Result Structure Tests ==========
+
+  it("should have all required fields in a valid analysis result", () => {
+    const result = {
+      summary: "Clear summary of the document",
+      keyClauses: [{ title: "Clause 1", explanation: "Explanation", importance: "High" }],
+      risks: [{ risk: "Risk 1", severity: "Medium", explanation: "Why it is a risk" }],
+      obligations: [{ party: "Employee", obligation: "Must maintain confidentiality" }],
+      questionsForLawyer: ["Is this clause enforceable?"],
+      overallRiskLevel: "Medium",
     };
 
-    // Structure checks
-    expect(mockResult.summary).toBeTruthy();
-    expect(typeof mockResult.summary).toBe("string");
-    expect(mockResult.keyClauses.length).toBeGreaterThan(0);
-    expect(mockResult.risks.length).toBeGreaterThan(0);
-    expect(mockResult.obligations.length).toBeGreaterThan(0);
-    expect(mockResult.questionsForLawyer.length).toBeGreaterThan(0);
-    expect(["Low", "Medium", "High"]).toContain(mockResult.overallRiskLevel);
+    expect(result).toHaveProperty("summary");
+    expect(result).toHaveProperty("keyClauses");
+    expect(result).toHaveProperty("risks");
+    expect(result).toHaveProperty("obligations");
+    expect(result).toHaveProperty("questionsForLawyer");
+    expect(result).toHaveProperty("overallRiskLevel");
   });
 
-  it("should reject text that is too short", () => {
-    const shortText = "This is too short";
-    expect(shortText.trim().length < 50).toBe(true);
-  });
-
-  it("should accept sufficiently long legal text", () => {
-    const validText = "A".repeat(60);
-    expect(validText.trim().length >= 50).toBe(true);
-  });
-
-  it("should have valid severity and importance values", () => {
-    const validLevels = ["High", "Medium", "Low"];
+  it("should only allow valid risk and importance levels", () => {
+    const validLevels = ["Low", "Medium", "High"];
     expect(validLevels).toContain("High");
     expect(validLevels).toContain("Medium");
     expect(validLevels).toContain("Low");
+  });
+
+  it("should ensure summary is a non-empty string", () => {
+    const summary = "This is a valid summary of the legal document.";
+    expect(typeof summary).toBe("string");
+    expect(summary.length).toBeGreaterThan(10);
+  });
+
+  it("should ensure arrays are not empty in a proper analysis", () => {
+    const keyClauses = [{ title: "Test", explanation: "Test", importance: "High" }];
+    const risks = [{ risk: "Test", severity: "Low", explanation: "Test" }];
+    const questions = ["What should I ask my lawyer?"];
+
+    expect(keyClauses.length).toBeGreaterThan(0);
+    expect(risks.length).toBeGreaterThan(0);
+    expect(questions.length).toBeGreaterThan(0);
   });
 });

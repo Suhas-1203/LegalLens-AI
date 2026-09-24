@@ -30,51 +30,50 @@ export async function analyzeLegalDocument(text: string): Promise<AnalysisResult
   const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
   const prompt = `
-You are LegalLens AI — a careful, neutral, and responsible legal document assistant.
-You NEVER provide legal advice. You only help users understand documents better and prepare better questions for a real lawyer.
+You are LegalLens AI, a careful and responsible legal document analysis assistant.
+You never give legal advice. You only help users understand documents better and prepare better questions for a real lawyer.
 
-Analyze the legal document below and return a valid JSON object with this exact structure:
+Analyze the legal document below and return a single valid JSON object with this exact structure:
 
 {
-  "summary": "Clear plain-English summary of the document (maximum 180 words)",
+  "summary": "Clear, neutral, plain-English summary (maximum 160 words)",
   "keyClauses": [
     {
-      "title": "Name of the clause",
+      "title": "Short name of the clause",
       "explanation": "Simple explanation in plain English",
       "importance": "High" | "Medium" | "Low"
     }
   ],
   "risks": [
     {
-      "risk": "Short description of the risk",
+      "risk": "Short name of the risk",
       "severity": "High" | "Medium" | "Low",
       "explanation": "Why this is a risk for the user"
     }
   ],
   "obligations": [
     {
-      "party": "Who has this obligation (e.g. Tenant, Company, Employee)",
-      "obligation": "What they are required to do"
+      "party": "Who has the obligation",
+      "obligation": "What they must do"
     }
   ],
   "questionsForLawyer": [
-    "Specific and useful question the user should ask a lawyer"
+    "Specific and practical question the user should ask a lawyer"
   ],
   "overallRiskLevel": "Low" | "Medium" | "High"
 }
 
-Important rules:
+Rules:
 - Be accurate and neutral
-- Highlight real risks and unusual clauses
-- Keep language simple and clear
-- Always return only pure JSON (no markdown, no extra text)
+- Highlight unusual or high-risk clauses
+- Keep language simple
+- Return only pure JSON (no markdown, no extra text)
 
-Document content:
+Document:
 """
 ${text.slice(0, 28000)}
 """
 `;
-
   try {
     const result = await model.generateContent(prompt);
     const response = await result.response;

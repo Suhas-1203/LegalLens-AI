@@ -3,18 +3,12 @@ import { analyzeLegalDocument } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
   try {
-    // Method check
-    if (req.method !== "POST") {
-      return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-    }
-
     const body = await req.json();
     const { text } = body;
 
-    // Strict input validation
     if (!text || typeof text !== "string") {
       return NextResponse.json(
-        { error: "Invalid input. Text must be a string." },
+        { error: "Invalid input. Please provide valid text." },
         { status: 400 }
       );
     }
@@ -23,44 +17,47 @@ export async function POST(req: NextRequest) {
 
     if (cleanedText.length < 50) {
       return NextResponse.json(
-        { error: "Document text is too short. Please provide at least 50 characters." },
+        { error: "Document text is too short. Minimum 50 characters required." },
         { status: 400 }
       );
     }
 
-    // Efficiency limit
     if (cleanedText.length > 28000) {
       return NextResponse.json(
-        { error: "Document is too large. Please paste a shorter version (under 28,000 characters)." },
+        { error: "Document is too large. Please limit to under 28,000 characters." },
         { status: 400 }
       );
     }
 
-    // Security: Basic sanitization
+    // Security sanitization
     const sanitizedText = cleanedText
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
       .replace(/javascript:/gi, "")
-      .replace(/on\w+=["'][^"']*["']/gi, "");
+      .replace(/on\w+\s*=/gi, "");
 
-    // Call Gemini
     const result = await analyzeLegalDocument(sanitizedText);
 
-    // Extra validation of AI response
-    if (!result || !result.summary || !Array.isArray(result.risks)) {
+    // Validate AI response
+    if (
+      !result ||
+      typeof result.summary !== "string" ||
+      !Array.isArray(result.risks) ||
+      !Array.isArray(result.keyClauses)
+    ) {
       return NextResponse.json(
-        { error: "Failed to generate a valid analysis. Please try again." },
+        { error: "Invalid analysis result received. Please try again." },
         { status: 500 }
       );
     }
 
     return NextResponse.json(result, {
+      status: 200,
       headers: {
-        "Cache-Control": "no-store",
+        "Cache-Control": "no-store, max-age=0",
       },
     });
   } catch (error: any) {
-    console.error("API Error:", error?.message || error);
-
+    console.error("API Error:", error?.message || "Unknown error");
     return NextResponse.json(
       { error: "An unexpected error occurred while analyzing the document." },
       { status: 500 }
